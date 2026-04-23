@@ -1,0 +1,652 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>🏓 剪刀手計分</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Noto+Sans+TC:wght@400;700;900&display=swap');
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --a:   #ff3b5c;
+  --b:   #00c2ff;
+  --bg:  #080810;
+  --sur: #10101e;
+  --txt: #f0f0ff;
+  --dim: #5555778;
+  --dim2: #666688;
+}
+
+html, body {
+  width: 100%; height: 100%;
+  background: var(--bg);
+  color: var(--txt);
+  font-family: 'Noto Sans TC', sans-serif;
+  overflow: hidden;
+  touch-action: manipulation;
+}
+
+/* ── camera ── */
+#cam-wrap {
+  position: fixed; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+}
+#cam {
+  width: 100%; height: 100%;
+  object-fit: cover;
+  /* 前置鏡頭：不加鏡像，讓畫面左右與現實一致 */
+  opacity: 0; transition: opacity .6s;
+}
+#cam.ready { opacity: .35; }
+
+/* landmark canvas overlay */
+#lm-canvas {
+  position: fixed; inset: 0;
+  width: 100%; height: 100%;
+  pointer-events: none;
+  /* 同樣不鏡像，與 video 一致 */
+}
+
+/* center divider */
+#divider {
+  position: fixed; left: 50%; top: 0; bottom: 0;
+  width: 1px;
+  background: linear-gradient(to bottom,
+    transparent 0%, rgba(255,255,255,.18) 20%,
+    rgba(255,255,255,.18) 80%, transparent 100%);
+  transform: translateX(-50%);
+  pointer-events: none; z-index: 2;
+}
+
+/* side labels floating */
+.side-label {
+  position: fixed; top: 50%;
+  transform: translateY(-50%);
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 13px; letter-spacing: 3px;
+  opacity: .25; pointer-events: none; z-index: 2;
+  writing-mode: vertical-rl;
+}
+#label-a { left: 18px;  color: var(--a); }
+#label-b { right: 18px; color: var(--b); transform: translateY(-50%) rotate(180deg); }
+
+/* ── SCOREBOARD ── */
+#board {
+  position: fixed; top: 0; left: 0; right: 0;
+  height: 148px;
+  display: flex; align-items: stretch;
+  background: linear-gradient(160deg, rgba(8,8,16,.97) 60%, rgba(16,16,30,.9));
+  border-bottom: 1px solid rgba(255,255,255,.07);
+  z-index: 10;
+}
+
+.score-side {
+  flex: 1; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 0;
+  cursor: pointer; user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  position: relative; overflow: hidden;
+}
+.score-side::after {
+  content: ''; position: absolute; inset: 0;
+  opacity: 0; transition: opacity .15s;
+}
+#side-a::after { background: radial-gradient(ellipse at 30% 50%, rgba(255,59,92,.12), transparent 70%); }
+#side-b::after { background: radial-gradient(ellipse at 70% 50%, rgba(0,194,255,.12), transparent 70%); }
+.score-side:active::after { opacity: 1; }
+
+.pname {
+  font-size: 11px; letter-spacing: 3px; text-transform: uppercase;
+  font-weight: 900; margin-bottom: 2px;
+}
+#pname-a { color: var(--a); }
+#pname-b { color: var(--b); }
+
+.snum {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 96px; line-height: .9;
+  transition: transform .08s;
+}
+#snum-a { color: var(--a); text-shadow: 0 0 40px rgba(255,59,92,.4); }
+#snum-b { color: var(--b); text-shadow: 0 0 40px rgba(0,194,255,.4); }
+.snum.pop { animation: numPop .22s cubic-bezier(.36,.07,.19,.97); }
+@keyframes numPop {
+  0%   { transform: scale(1.4) translateY(-4px); }
+  60%  { transform: scale(.95); }
+  100% { transform: scale(1); }
+}
+
+#board-mid {
+  width: 56px; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 6px;
+  flex-shrink: 0;
+}
+#board-colon {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 48px; color: var(--dim2); line-height: 1;
+}
+#game-info {
+  font-size: 10px; color: var(--dim2); letter-spacing: 1px;
+  text-align: center; line-height: 1.5;
+}
+
+/* gesture indicator dots */
+.gesture-dot {
+  position: absolute; bottom: 10px;
+  width: 8px; height: 8px; border-radius: 50%;
+  transition: background .2s, box-shadow .2s;
+  background: rgba(255,255,255,.1);
+}
+#gdot-a { left: 50%; transform: translateX(-50%); }
+#gdot-b { left: 50%; transform: translateX(-50%); }
+.gesture-dot.detected-a { background: var(--a); box-shadow: 0 0 10px var(--a); }
+.gesture-dot.detected-b { background: var(--b); box-shadow: 0 0 10px var(--b); }
+
+/* ── FLASH OVERLAY ── */
+.flash-overlay {
+  position: fixed; top: 0; bottom: 0; width: 50%;
+  pointer-events: none; z-index: 3; opacity: 0;
+}
+#flash-a { left: 0;  background: radial-gradient(ellipse at 20% 50%, rgba(255,59,92,.5), transparent 65%); }
+#flash-b { right: 0; background: radial-gradient(ellipse at 80% 50%, rgba(0,194,255,.5), transparent 65%); }
+.flash-overlay.go { animation: flashPop .4s ease-out forwards; }
+@keyframes flashPop {
+  0%   { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+/* ── STATUS BAR ── */
+#status-bar {
+  position: fixed; bottom: 0; left: 0; right: 0;
+  height: 52px;
+  background: linear-gradient(to top, rgba(8,8,16,.97), rgba(8,8,16,.7));
+  border-top: 1px solid rgba(255,255,255,.07);
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 16px; z-index: 10;
+}
+#status-left { display: flex; align-items: center; gap: 8px; }
+#status-dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: #333355; transition: background .3s, box-shadow .3s;
+}
+#status-dot.on  { background: #44ffaa; box-shadow: 0 0 8px #44ffaa; }
+#status-dot.warn{ background: #ffaa22; box-shadow: 0 0 8px #ffaa22; }
+#status-msg { font-size: 11px; color: var(--dim2); letter-spacing: .5px; }
+
+#btn-row { display: flex; gap: 8px; }
+.btn {
+  font-family: 'Noto Sans TC', sans-serif;
+  font-size: 11px; letter-spacing: 1px;
+  padding: 5px 12px; border-radius: 4px;
+  border: 1px solid rgba(255,255,255,.12);
+  background: rgba(255,255,255,.04);
+  color: var(--dim2); cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: background .12s, color .12s;
+}
+.btn:active { background: rgba(255,255,255,.1); color: var(--txt); }
+
+/* ── TOAST ── */
+#toast {
+  position: fixed; top: 162px; left: 50%;
+  transform: translateX(-50%);
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 26px; letter-spacing: 3px;
+  padding: 8px 24px; border-radius: 6px;
+  white-space: nowrap; pointer-events: none; z-index: 20;
+  opacity: 0; transition: opacity .15s;
+}
+#toast.show { opacity: 1; }
+#toast.ta { background: var(--a); color: #fff; }
+#toast.tb { background: var(--b); color: #fff; }
+#toast.tn { background: rgba(255,255,255,.1); color: var(--txt); border: 1px solid rgba(255,255,255,.15); }
+
+/* ── WIN OVERLAY ── */
+#win-overlay {
+  position: fixed; inset: 0; z-index: 30;
+  background: rgba(8,8,16,.92);
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 10px;
+  opacity: 0; pointer-events: none; transition: opacity .4s;
+}
+#win-overlay.show { opacity: 1; pointer-events: all; }
+#win-sub  { font-size: 12px; letter-spacing: 4px; color: var(--dim2); }
+#win-name { font-family: 'Bebas Neue', sans-serif; font-size: 72px; line-height: 1; }
+#win-sc   { font-family: 'Bebas Neue', sans-serif; font-size: 32px; color: var(--dim2); }
+#btn-next {
+  margin-top: 20px; padding: 12px 40px; border-radius: 8px; border: none;
+  font-family: 'Bebas Neue', sans-serif; font-size: 22px; letter-spacing: 3px;
+  cursor: pointer; transition: transform .1s;
+}
+#btn-next:active { transform: scale(.96); }
+
+/* ── SETUP MODAL ── */
+#setup {
+  position: fixed; inset: 0; z-index: 40;
+  background: rgba(8,8,16,.97);
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 18px; padding: 28px;
+}
+#setup.hidden { display: none; }
+#setup-title {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 38px; letter-spacing: 4px; color: var(--txt);
+}
+#setup-desc {
+  font-size: 13px; color: var(--dim2); text-align: center;
+  line-height: 1.7; max-width: 300px;
+}
+.gesture-demo {
+  display: flex; gap: 16px;
+}
+.gdemo {
+  display: flex; flex-direction: column; align-items: center; gap: 8px;
+  padding: 14px 22px; border-radius: 10px;
+  font-size: 11px; letter-spacing: 1px;
+}
+.gdemo.ra { background: rgba(255,59,92,.1); border: 1px solid rgba(255,59,92,.25); color: var(--a); }
+.gdemo.rb { background: rgba(0,194,255,.1); border: 1px solid rgba(0,194,255,.25); color: var(--b); }
+.gdemo-icon { font-size: 36px; }
+.name-row { display: flex; gap: 10px; width: 100%; max-width: 320px; }
+.ninput {
+  flex: 1; padding: 10px 12px; text-align: center;
+  background: rgba(255,255,255,.06);
+  border-radius: 6px; color: var(--txt);
+  font-family: 'Noto Sans TC', sans-serif; font-size: 14px;
+  outline: none;
+}
+.ninput.ra { border: 1px solid rgba(255,59,92,.4); }
+.ninput.rb { border: 1px solid rgba(0,194,255,.4); }
+.ninput:focus { filter: brightness(1.3); }
+.target-row { display: flex; align-items: center; gap: 10px; color: var(--dim2); font-size: 13px; }
+#tgt-input {
+  width: 60px; padding: 8px; text-align: center;
+  background: rgba(255,255,255,.06);
+  border: 1px solid rgba(255,255,255,.15);
+  border-radius: 6px; color: var(--txt);
+  font-family: 'Bebas Neue', sans-serif; font-size: 22px; outline: none;
+}
+#btn-go {
+  width: 100%; max-width: 320px; padding: 14px; border-radius: 8px; border: none;
+  background: var(--txt); color: var(--bg);
+  font-family: 'Bebas Neue', sans-serif; font-size: 22px; letter-spacing: 4px;
+  cursor: pointer; transition: opacity .15s;
+}
+#btn-go:active { opacity: .8; }
+#loading-mediapipe {
+  font-size: 12px; color: var(--dim2); letter-spacing: 1px;
+  display: flex; align-items: center; gap: 8px;
+}
+.spinner {
+  width: 14px; height: 14px; border-radius: 50%;
+  border: 2px solid rgba(255,255,255,.1);
+  border-top-color: var(--txt);
+  animation: spin .8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+
+<div id="cam-wrap"><video id="cam" autoplay playsinline muted></video></div>
+<canvas id="lm-canvas"></canvas>
+
+<div id="divider"></div>
+<div class="side-label" id="label-a">✌ 在這邊</div>
+<div class="side-label" id="label-b">✌ 在這邊</div>
+
+<div class="flash-overlay" id="flash-a"></div>
+<div class="flash-overlay" id="flash-b"></div>
+
+<!-- Scoreboard -->
+<div id="board">
+  <div class="score-side" id="side-a">
+    <div class="pname" id="pname-a">A 方</div>
+    <div class="snum" id="snum-a">0</div>
+    <div class="gesture-dot" id="gdot-a"></div>
+  </div>
+  <div id="board-mid">
+    <div id="board-colon">:</div>
+    <div id="game-info">先得 11 分</div>
+  </div>
+  <div class="score-side" id="side-b">
+    <div class="pname" id="pname-b">B 方</div>
+    <div class="snum" id="snum-b">0</div>
+    <div class="gesture-dot" id="gdot-b"></div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<div id="win-overlay">
+  <div id="win-sub">🏓 WINNER</div>
+  <div id="win-name"></div>
+  <div id="win-sc"></div>
+  <button id="btn-next">下一局</button>
+</div>
+
+<div id="status-bar">
+  <div id="status-left">
+    <div id="status-dot"></div>
+    <div id="status-msg">啟動中...</div>
+  </div>
+  <div id="btn-row">
+    <button class="btn" id="btn-undo">↩ 撤銷</button>
+    <button class="btn" id="btn-reset">重設</button>
+    <button class="btn" id="btn-setup">⚙</button>
+  </div>
+</div>
+
+<!-- Setup -->
+<div id="setup">
+  <div id="setup-title">🏓 剪刀手計分</div>
+  <div id="setup-desc">
+    固定手機，鏡頭朝向球桌兩端。<br>
+    各自在自己那半邊比✌️即得分。<br>
+    等待 MediaPipe 載入完畢再開始。
+  </div>
+  <div class="gesture-demo">
+    <div class="gdemo ra"><div class="gdemo-icon">✌️</div>左半邊</div>
+    <div class="gdemo rb"><div class="gdemo-icon">✌️</div>右半邊</div>
+  </div>
+  <div class="name-row">
+    <input class="ninput ra" id="inp-a" placeholder="A 方名字" value="A 方">
+    <input class="ninput rb" id="inp-b" placeholder="B 方名字" value="B 方">
+  </div>
+  <div class="target-row">
+    先得 <input type="number" id="tgt-input" value="11" min="5" max="21"> 分獲勝
+  </div>
+  <div id="loading-mediapipe"><div class="spinner"></div>載入手勢辨識中...</div>
+  <button id="btn-go" disabled>開始比賽</button>
+</div>
+
+<!-- MediaPipe -->
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+
+<script>
+// ── State ──
+let sA = 0, sB = 0, target = 11, gameOver = false;
+let nameA = 'A 方', nameB = 'B 方';
+let hist = [];
+const COOLDOWN = 2000;
+let lastA = 0, lastB = 0;
+let mpReady = false;
+let videoW = 1, videoH = 1;
+
+const cam     = document.getElementById('cam');
+const lmCv    = document.getElementById('lm-canvas');
+const lmCtx   = lmCv.getContext('2d');
+const snumA   = document.getElementById('snum-a');
+const snumB   = document.getElementById('snum-b');
+const gdotA   = document.getElementById('gdot-a');
+const gdotB   = document.getElementById('gdot-b');
+const sdot    = document.getElementById('status-dot');
+const smsg    = document.getElementById('status-msg');
+const toast   = document.getElementById('toast');
+const flashA  = document.getElementById('flash-a');
+const flashB  = document.getElementById('flash-b');
+
+// ── MediaPipe Hands ──
+const hands = new Hands({ locateFile: f => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${f}` });
+hands.setOptions({
+  maxNumHands: 4,
+  modelComplexity: 1,
+  minDetectionConfidence: 0.7,
+  minTrackingConfidence: 0.6,
+});
+
+hands.onResults(onResults);
+
+hands.initialize().then(() => {
+  mpReady = true;
+  document.getElementById('loading-mediapipe').innerHTML = '✅ 手勢辨識就緒';
+  document.getElementById('btn-go').disabled = false;
+}).catch(e => {
+  document.getElementById('loading-mediapipe').innerHTML = '❌ 載入失敗，請重新整理';
+});
+
+// ── Scissors gesture detection ──
+// MediaPipe 21 landmarks: 0=wrist, 4=thumb tip, 8=index tip, 12=middle tip, 16=ring tip, 20=pinky tip
+// MCP joints: 5=index MCP, 9=middle MCP, 13=ring MCP, 17=pinky MCP
+// PIP joints: 6=index PIP, 10=middle PIP, 14=ring PIP, 18=pinky PIP
+
+function isFingerExtended(lm, tipIdx, pipIdx, mcpIdx) {
+  // tip is above (lower y) PIP and MCP
+  return lm[tipIdx].y < lm[pipIdx].y && lm[pipIdx].y < lm[mcpIdx].y;
+}
+
+function isFingerCurled(lm, tipIdx, pipIdx) {
+  return lm[tipIdx].y > lm[pipIdx].y;
+}
+
+function isScissors(lm) {
+  const indexUp  = isFingerExtended(lm, 8, 6, 5);
+  const middleUp = isFingerExtended(lm, 12, 10, 9);
+  const ringDown = isFingerCurled(lm, 16, 14);
+  const pinkyDown= isFingerCurled(lm, 20, 18);
+  return indexUp && middleUp && ringDown && pinkyDown;
+}
+
+function onResults(results) {
+  // resize lm canvas
+  if (lmCv.width !== cam.videoWidth || lmCv.height !== cam.videoHeight) {
+    lmCv.width  = cam.videoWidth  || 640;
+    lmCv.height = cam.videoHeight || 360;
+    videoW = lmCv.width; videoH = lmCv.height;
+  }
+
+  lmCtx.clearRect(0, 0, lmCv.width, lmCv.height);
+
+  if (!results.multiHandLandmarks || gameOver) return;
+
+  const now = Date.now();
+  let detectedA = false, detectedB = false;
+
+  results.multiHandLandmarks.forEach((lm, i) => {
+    // 前置鏡頭說明：
+    // 前置鏡頭的 raw frame 本身是鏡像的（x=0 = 畫面左邊 = 現實右邊）
+    // 我們沒有加 CSS scaleX(-1)，所以畫面顯示就是 raw frame
+    // 畫面左半 = 現實右半 = B隊，畫面右半 = 現實左半 = A隊
+    // wristX < 0.5 → 畫面左 → 現實右 → B隊
+    // wristX > 0.5 → 畫面右 → 現實左 → A隊
+    const side = wristX > 0.5 ? 'a' : 'b';
+
+    // Draw skeleton
+    drawHand(lm, side);
+
+    if (isScissors(lm)) {
+      if (side === 'a') detectedA = true;
+      else detectedB = true;
+
+      if (side === 'a' && now - lastA > COOLDOWN) {
+        lastA = now; addScore('a');
+      }
+      if (side === 'b' && now - lastB > COOLDOWN) {
+        lastB = now; addScore('b');
+      }
+    }
+  });
+
+  // update dots
+  gdotA.className = 'gesture-dot' + (detectedA ? ' detected-a' : '');
+  gdotB.className = 'gesture-dot' + (detectedB ? ' detected-b' : '');
+}
+
+function drawHand(lm, side) {
+  const color = side === 'a' ? 'rgba(255,59,92,.8)' : 'rgba(0,194,255,.8)';
+  const W = lmCv.width, H = lmCv.height;
+  const connections = [
+    [0,1],[1,2],[2,3],[3,4],
+    [0,5],[5,6],[6,7],[7,8],
+    [5,9],[9,10],[10,11],[11,12],
+    [9,13],[13,14],[14,15],[15,16],
+    [13,17],[17,18],[18,19],[19,20],[0,17]
+  ];
+  lmCtx.strokeStyle = color;
+  lmCtx.lineWidth = 2;
+  connections.forEach(([a, b]) => {
+    lmCtx.beginPath();
+    lmCtx.moveTo(lm[a].x * W, lm[a].y * H);
+    lmCtx.lineTo(lm[b].x * W, lm[b].y * H);
+    lmCtx.stroke();
+  });
+  lm.forEach((p, idx) => {
+    lmCtx.beginPath();
+    lmCtx.arc(p.x * W, p.y * H, idx === 0 ? 5 : 3, 0, Math.PI * 2);
+    lmCtx.fillStyle = color;
+    lmCtx.fill();
+  });
+}
+
+// ── Camera ──
+async function startCamera() {
+  sdot.className = 'warn';
+  smsg.textContent = '請求鏡頭權限...';
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } }
+    });
+    cam.srcObject = stream;
+    cam.onloadedmetadata = () => {
+      cam.play();
+      cam.classList.add('ready');
+      sdot.className = 'on';
+      smsg.textContent = '偵測中 — 比✌️得分';
+      startLoop();
+    };
+  } catch(e) {
+    sdot.className = 'warn';
+    smsg.textContent = '無法存取鏡頭（可點擊計分板手動計分）';
+  }
+}
+
+function startLoop() {
+  async function loop() {
+    if (cam.readyState >= 2 && mpReady) {
+      await hands.send({ image: cam });
+    }
+    requestAnimationFrame(loop);
+  }
+  loop();
+}
+
+// ── Score ──
+function addScore(side) {
+  hist.push({ a: sA, b: sB });
+  if (side === 'a') sA++; else sB++;
+  render();
+  popAnim(side === 'a' ? snumA : snumB);
+  triggerFlash(side);
+  showToast((side === 'a' ? nameA : nameB) + '  ✌️  +1', side === 'a' ? 'ta' : 'tb');
+  checkWin();
+}
+
+function checkWin() {
+  const mx = Math.max(sA, sB), mn = Math.min(sA, sB);
+  if (mx >= target && mx - mn >= 2) {
+    gameOver = true;
+    const won = sA > sB;
+    const wo = document.getElementById('win-overlay');
+    const wn = document.getElementById('win-name');
+    wn.textContent = won ? nameA : nameB;
+    wn.style.color = won ? 'var(--a)' : 'var(--b)';
+    document.getElementById('win-sc').textContent = `${sA}  :  ${sB}`;
+    const nb = document.getElementById('btn-next');
+    nb.style.background = won ? 'var(--a)' : 'var(--b)';
+    nb.style.color = '#fff';
+    wo.classList.add('show');
+  }
+  updateInfo();
+}
+
+function updateInfo() {
+  const mx = Math.max(sA, sB);
+  const gi = document.getElementById('game-info');
+  if (mx >= target - 1 && Math.abs(sA - sB) <= 1 && mx >= target - 1) {
+    gi.textContent = sA === sB ? '平分！' : '局末！';
+  } else {
+    gi.textContent = `先得 ${target} 分`;
+  }
+}
+
+function render() {
+  snumA.textContent = sA;
+  snumB.textContent = sB;
+}
+
+function popAnim(el) {
+  el.classList.remove('pop');
+  void el.offsetWidth;
+  el.classList.add('pop');
+}
+
+function triggerFlash(side) {
+  const el = side === 'a' ? flashA : flashB;
+  el.classList.remove('go');
+  void el.offsetWidth;
+  el.classList.add('go');
+}
+
+let tt = null;
+function showToast(msg, cls) {
+  toast.textContent = msg;
+  toast.className = 'show ' + cls;
+  clearTimeout(tt);
+  tt = setTimeout(() => toast.className = '', 1400);
+}
+
+// ── Setup ──
+document.getElementById('btn-go').addEventListener('click', () => {
+  nameA = document.getElementById('inp-a').value.trim() || 'A 方';
+  nameB = document.getElementById('inp-b').value.trim() || 'B 方';
+  target = parseInt(document.getElementById('tgt-input').value) || 11;
+  document.getElementById('pname-a').textContent = nameA;
+  document.getElementById('pname-b').textContent = nameB;
+  document.getElementById('setup').classList.add('hidden');
+  updateInfo();
+  startCamera();
+});
+
+document.getElementById('btn-setup').addEventListener('click', () => {
+  document.getElementById('setup').classList.remove('hidden');
+});
+
+// ── Controls ──
+document.getElementById('btn-undo').addEventListener('click', () => {
+  if (!hist.length) return;
+  const s = hist.pop();
+  sA = s.a; sB = s.b; gameOver = false;
+  document.getElementById('win-overlay').classList.remove('show');
+  render(); updateInfo();
+  showToast('撤銷', 'tn');
+});
+
+document.getElementById('btn-reset').addEventListener('click', () => {
+  if (!confirm('確定重設？')) return;
+  sA = 0; sB = 0; gameOver = false; hist = [];
+  document.getElementById('win-overlay').classList.remove('show');
+  render(); updateInfo();
+  showToast('重設', 'tn');
+});
+
+document.getElementById('btn-next').addEventListener('click', () => {
+  sA = 0; sB = 0; gameOver = false; hist = [];
+  document.getElementById('win-overlay').classList.remove('show');
+  render(); updateInfo();
+});
+
+// Manual tap
+document.getElementById('side-a').addEventListener('click', () => { if (!gameOver) addScore('a'); });
+document.getElementById('side-b').addEventListener('click', () => { if (!gameOver) addScore('b'); });
+
+// Wake lock
+(async () => {
+  try { if ('wakeLock' in navigator) await navigator.wakeLock.request('screen'); } catch(_) {}
+})();
+</script>
+</body>
+</html>
