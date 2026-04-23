@@ -8,12 +8,10 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 html, body {
   width: 100%; height: 100%;
-  background: #000;
-  overflow: hidden;
+  background: #000; overflow: hidden;
   font-family: 'Segoe UI', system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
 }
-
 #video {
   position: fixed; inset: 0;
   width: 100%; height: 100%;
@@ -22,23 +20,16 @@ html, body {
   filter: brightness(0.35);
   z-index: 0;
 }
-
-/* landmark overlay — drawn on ROI-scaled coords, we skip drawing to keep perf */
 #canvas-overlay {
   position: fixed; inset: 0;
   width: 100%; height: 100%;
-  pointer-events: none;
-  z-index: 1;
+  pointer-events: none; z-index: 1;
 }
-
-/* hidden canvas used for ROI pre-processing */
 #roi-canvas { display: none; }
 
 #scores {
   position: fixed; inset: 0;
-  display: flex;
-  z-index: 10;
-  pointer-events: none;
+  display: flex; z-index: 10; pointer-events: none;
 }
 .half {
   flex: 1;
@@ -49,34 +40,38 @@ html, body {
   content: '';
   position: absolute;
   left: 50%; top: 10%; height: 80%;
-  width: 1px;
-  background: rgba(255,255,255,0.12);
+  width: 1px; background: rgba(255,255,255,0.12);
   transform: translateX(-50%);
 }
-
 .score-num {
   font-size: clamp(6rem, 22vw, 18rem);
   font-weight: 900; line-height: 1;
   font-variant-numeric: tabular-nums;
-  letter-spacing: -0.02em;
-  user-select: none;
+  letter-spacing: -0.02em; user-select: none;
 }
 #left-score  { color: #f59e0b; text-shadow: 0 0 60px rgba(245,158,11,0.5); }
 #right-score { color: #60a5fa; text-shadow: 0 0 60px rgba(96,165,250,0.5); }
-
 .score-num.bump { animation: bump 0.35s cubic-bezier(0.34,1.56,0.64,1); }
 @keyframes bump { 0%{transform:scale(1)} 50%{transform:scale(1.2)} 100%{transform:scale(1)} }
-
 .half.flash-left  { animation: flash-gold 0.5s ease-out; }
 .half.flash-right { animation: flash-blue 0.5s ease-out; }
 @keyframes flash-gold { 0%{background:rgba(245,158,11,0.2)} 100%{background:transparent} }
 @keyframes flash-blue { 0%{background:rgba(96,165,250,0.2)}  100%{background:transparent} }
-
 .cooldown-bar {
   position: absolute; bottom: 0; left: 0; right: 0;
   height: 4px; background: #a855f7;
   width: 0%; opacity: 0; border-radius: 2px;
 }
+
+#roi-box-left, #roi-box-right {
+  position: fixed;
+  top: 0; height: 100%;
+  width: 50%;
+  border: 1px dashed rgba(255,255,255,0.06);
+  pointer-events: none; z-index: 2;
+}
+#roi-box-left  { left: 0; }
+#roi-box-right { right: 0; }
 
 #gesture-hint {
   position: fixed; z-index: 30;
@@ -105,7 +100,7 @@ html, body {
 .set-pip { width: 9px; height: 9px; border-radius: 50%; border: 1.5px solid rgba(255,255,255,0.2); }
 .set-pip.left  { background: #f59e0b; border-color: #f59e0b; }
 .set-pip.right { background: #60a5fa; border-color: #60a5fa; }
-.hud-btns { display: flex; gap: 0.4rem; }
+.hud-btns { display: flex; gap: 0.4rem; align-items: center; }
 .hud-btn {
   padding: 0.2rem 0.65rem; border-radius: 0.4rem;
   font-size: 0.72rem; font-weight: 600;
@@ -116,6 +111,20 @@ html, body {
 .hud-btn:hover { background: rgba(255,255,255,0.15); color: #fff; }
 .hud-btn.primary { background: #3b82f6; color: #fff; border-color: #3b82f6; }
 .hud-btn.primary:hover { background: #2563eb; }
+
+#voice-toggle {
+  display: flex; align-items: center; gap: 0.35rem;
+  padding: 0.2rem 0.65rem; border-radius: 0.4rem;
+  font-size: 0.72rem; font-weight: 600;
+  border: 1px solid rgba(255,255,255,0.15);
+  background: rgba(255,255,255,0.07); color: rgba(255,255,255,0.4);
+  cursor: pointer; transition: all 0.15s; white-space: nowrap;
+  user-select: none;
+}
+#voice-toggle.on { border-color: #22c55e; background: rgba(34,197,94,0.12); color: #22c55e; }
+.voice-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+#voice-toggle.on .voice-dot { animation: pulse 1.2s ease-in-out infinite; }
+
 #cam-dot {
   width: 7px; height: 7px; border-radius: 50%;
   background: #ef4444; display: inline-block;
@@ -123,20 +132,17 @@ html, body {
 #cam-dot.on { background: #22c55e; animation: pulse 1.5s ease-in-out infinite; }
 @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
 
-/* ROI debug indicators (tiny corner badges) */
-#roi-left-badge, #roi-right-badge {
+#badge-left, #badge-right {
   position: fixed; bottom: 0.5rem; z-index: 25;
   font-size: 0.6rem; padding: 0.15rem 0.5rem;
   border-radius: 9999px; pointer-events: none;
-  background: rgba(0,0,0,0.6); border: 1px solid;
-  transition: all 0.2s;
+  background: rgba(0,0,0,0.6); border: 1px solid; transition: all 0.2s;
 }
-#roi-left-badge  { left: 0.75rem;  color: #f59e0b; border-color: rgba(245,158,11,0.4); }
-#roi-right-badge { right: 0.75rem; color: #60a5fa; border-color: rgba(96,165,250,0.4); }
-#roi-left-badge.active  { background: rgba(245,158,11,0.2); border-color: #f59e0b; }
-#roi-right-badge.active { background: rgba(96,165,250,0.2); border-color: #60a5fa; }
+#badge-left  { left: 0.75rem;  color: #f59e0b; border-color: rgba(245,158,11,0.3); }
+#badge-right { right: 0.75rem; color: #60a5fa; border-color: rgba(96,165,250,0.3); }
+#badge-left.active  { background: rgba(245,158,11,0.2); border-color: #f59e0b; }
+#badge-right.active { background: rgba(96,165,250,0.2); border-color: #60a5fa; }
 
-/* Setup modal */
 #setup-modal {
   position: fixed; inset: 0; z-index: 100;
   background: rgba(0,0,0,0.92);
@@ -151,7 +157,7 @@ html, body {
 .modal-label { font-size: 0.72rem; font-weight: 700; color: #8ba3c0; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 0.4rem; }
 .opt-row { display: flex; gap: 0.4rem; }
 .opt-btn {
-  flex: 1; padding: 0.55rem 0.5rem; border-radius: 0.5rem;
+  flex: 1; padding: 0.45rem 0.4rem; border-radius: 0.5rem;
   border: 1.5px solid #2d3f52; background: #1e2d3d; color: #8ba3c0;
   font-size: 0.82rem; font-weight: 600; cursor: pointer; transition: all 0.15s; text-align: center;
 }
@@ -161,13 +167,34 @@ html, body {
 .slider-row input[type=range] { flex: 1; accent-color: #3b82f6; }
 .slider-val { font-size: 0.82rem; color: #8ba3c0; min-width: 2ch; }
 .modal-note { font-size: 0.68rem; color: #4a6480; }
+.voice-option {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0.65rem 0.75rem; border-radius: 0.5rem;
+  border: 1.5px solid #2d3f52; background: #1e2d3d;
+  cursor: pointer; transition: all 0.15s;
+}
+.voice-option:hover { border-color: #3b82f6; }
+.voice-option.sel { border-color: #22c55e; background: rgba(34,197,94,0.08); }
+.voice-option-label { font-size: 0.85rem; font-weight: 600; color: #8ba3c0; display: flex; align-items: center; gap: 0.5rem; }
+.voice-option.sel .voice-option-label { color: #22c55e; }
+.voice-toggle-pill {
+  width: 34px; height: 18px; border-radius: 9999px;
+  background: #2d3f52; position: relative; transition: background 0.2s; flex-shrink: 0;
+}
+.voice-option.sel .voice-toggle-pill { background: #22c55e; }
+.voice-toggle-pill::after {
+  content: ''; position: absolute;
+  width: 13px; height: 13px; border-radius: 50%;
+  background: #fff; top: 2.5px; left: 3px; transition: transform 0.2s;
+}
+.voice-option.sel .voice-toggle-pill::after { transform: translateX(15px); }
 .start-btn {
-  width: 100%; padding: 0.9rem; border-radius: 0.75rem;
-  background: #3b82f6; color: #fff; font-size: 0.95rem; font-weight: 800; border: none; cursor: pointer;
+  width: 100%; padding: 0.75rem; border-radius: 0.75rem;
+  background: #3b82f6; color: #fff; font-size: 0.9rem; font-weight: 800; border: none; cursor: pointer;
+  flex-shrink: 0;
 }
 .start-btn:hover { background: #2563eb; }
 
-/* Winner */
 #winner-overlay {
   position: fixed; inset: 0; z-index: 50;
   background: rgba(0,0,0,0.88);
@@ -184,6 +211,25 @@ html, body {
   background: #3b82f6; color: #fff; border: none; border-radius: 0.75rem; cursor: pointer;
 }
 #btn-new-game:hover { background: #2563eb; }
+
+/* Rotate prompt overlay */
+#rotate-overlay {
+  position: fixed; inset: 0; z-index: 200;
+  background: rgba(0,0,0,0.95);
+  display: none;
+  flex-direction: column; align-items: center; justify-content: center;
+  gap: 1.2rem;
+}
+#rotate-overlay.show { display: flex; }
+#rotate-icon { font-size: 4rem; animation: rotate-hint 1.5s ease-in-out infinite; }
+@keyframes rotate-hint {
+  0%   { transform: rotate(0deg); }
+  40%  { transform: rotate(90deg); }
+  60%  { transform: rotate(90deg); }
+  100% { transform: rotate(0deg); }
+}
+#rotate-text { font-size: 1.1rem; font-weight: 700; color: #fff; text-align: center; }
+#rotate-sub  { font-size: 0.8rem; color: #6b7280; }
 </style>
 </head>
 <body>
@@ -191,6 +237,9 @@ html, body {
 <video id="video" autoplay playsinline muted></video>
 <canvas id="canvas-overlay"></canvas>
 <canvas id="roi-canvas"></canvas>
+
+<div id="roi-box-left"></div>
+<div id="roi-box-right"></div>
 
 <div id="scores">
   <div class="half" id="left-half">
@@ -210,14 +259,18 @@ html, body {
     <div class="set-pip-row" id="sets-display"></div>
   </div>
   <div class="hud-btns">
+    <div id="voice-toggle" onclick="toggleVoice()" title="語音播報">
+      <div class="voice-dot"></div>
+      <span id="voice-label">語音 OFF</span>
+    </div>
     <button class="hud-btn" onclick="undoPoint()">↩ 撤銷</button>
     <button class="hud-btn" onclick="resetGame()">重置</button>
     <button class="hud-btn primary" onclick="goFullscreen()">⛶ 全螢幕</button>
   </div>
 </div>
 
-<div id="roi-left-badge">✌️ 左偵測中</div>
-<div id="roi-right-badge">✌️ 右偵測中</div>
+<div id="badge-left">✌️ 左偵測中</div>
+<div id="badge-right">✌️ 右偵測中</div>
 
 <div id="gesture-hint">
   <div id="gesture-hint-text">+1</div>
@@ -265,7 +318,15 @@ html, body {
       </div>
       <div class="modal-note">偵測到 ✌️ 後計分 +1，冷卻 3 秒</div>
     </div>
-    <button class="start-btn" onclick="startGame()">📷 開啟鏡頭並開始</button>
+    <div>
+      <div class="modal-label">語音播報</div>
+      <div class="voice-option sel" id="modal-voice-toggle" onclick="toggleModalVoice()">
+        <span class="voice-option-label">🔊 得分後自動播報比分（英文）</span>
+        <div class="voice-toggle-pill"></div>
+      </div>
+      <div class="modal-note" style="margin-top:.4rem">例：4:3 → "four three"　請確認響鈴撥片未靜音</div>
+    </div>
+    <button class="start-btn" id="start-btn" onclick="startGame()">📷 開啟鏡頭並開始</button>
   </div>
 </div>
 
@@ -274,19 +335,50 @@ html, body {
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
 
 <script>
-const WIN_SETS = {3:2,5:3,7:4};
-const COOLDOWN = 3000;
-let cfg = { mode:'singles', maxSets:5, pts:11, sens:2 };
-let st = newState();
-function newState() {
-  return { ls:0, rs:0, lSets:0, rSets:0, set:1, serveLeft:true, history:[], cdL:false, cdR:false, over:false };
+const WIN_SETS={3:2,5:3,7:4};
+const COOLDOWN=3000;
+let cfg={mode:'singles',maxSets:5,pts:11,sens:2,voice:true};
+let st=newState();
+function newState(){
+  return{ls:0,rs:0,lSets:0,rSets:0,set:1,serveLeft:true,history:[],cdL:false,cdR:false,over:false};
 }
 
-document.getElementById('sens-slider').addEventListener('input', function() {
-  cfg.sens = +this.value;
-  document.getElementById('sens-val').textContent = this.value;
+/* ── iOS AUDIO UNLOCK ──
+   Must be called inside a user-gesture handler (tap/click).
+   Resumes AudioContext + fires a silent SpeechSynthesisUtterance
+   to whitelist speechSynthesis for subsequent auto calls on iOS.
+*/
+let audioCtx = null;
+let speechUnlocked = false;
+
+function unlockAudio() {
+  // AudioContext unlock
+  if (!audioCtx) {
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  }
+  if (audioCtx.state === 'suspended') {
+    audioCtx.resume();
+  }
+  // Synchronous warm-up: iOS needs speak() called at least once during a
+  // user gesture before it allows subsequent auto calls.
+  // Fire TWO utterances: a silent one to unlock, then a real one to warm up
+  // the synthesis engine. Both must be synchronous within the gesture handler.
+  if (window.speechSynthesis) {
+    window.speechSynthesis.cancel();
+    const silent = new SpeechSynthesisUtterance(' ');
+    silent.volume = 0;
+    silent.lang = 'en-US';
+    silent.rate = 0.9;
+    window.speechSynthesis.speak(silent);
+    speechUnlocked = true;
+  }
+}
+
+document.getElementById('sens-slider').addEventListener('input',function(){
+  cfg.sens=+this.value;
+  document.getElementById('sens-val').textContent=this.value;
 });
-function pick(el, group, val) {
+function pick(el,group,val){
   document.querySelectorAll(`[data-${group}]`).forEach(b=>b.classList.remove('sel'));
   el.classList.add('sel');
   if(group==='mode') cfg.mode=val;
@@ -294,14 +386,62 @@ function pick(el, group, val) {
   if(group==='pts')  cfg.pts=+val;
 }
 
-function startGame() {
-  st = newState();
+function toggleModalVoice(){
+  cfg.voice=!cfg.voice;
+  document.getElementById('modal-voice-toggle').classList.toggle('sel',cfg.voice);
+  syncVoiceHUD();
+}
+function toggleVoice(){
+  cfg.voice=!cfg.voice;
+  document.getElementById('modal-voice-toggle').classList.toggle('sel',cfg.voice);
+  syncVoiceHUD();
+  // If turning ON: warm up synchronously right now inside the tap gesture
+  if(cfg.voice && window.speechSynthesis){
+    window.speechSynthesis.cancel();
+    const warmup = new SpeechSynthesisUtterance(' ');
+    warmup.volume = 0;
+    warmup.lang = 'en-US';
+    warmup.rate = 0.9;
+    window.speechSynthesis.speak(warmup);
+    speechUnlocked = true;
+  }
+}
+function syncVoiceHUD(){
+  const el=document.getElementById('voice-toggle');
+  el.classList.toggle('on',cfg.voice);
+  document.getElementById('voice-label').textContent=cfg.voice?'語音 ON':'語音 OFF';
+}
+
+const ONES=['zero','one','two','three','four','five','six','seven','eight','nine',
+            'ten','eleven','twelve','thirteen','fourteen','fifteen','sixteen',
+            'seventeen','eighteen','nineteen','twenty','twenty one'];
+function numWord(n){ return ONES[n]||String(n); }
+
+function speakScore(ls,rs){
+  if(!cfg.voice||!window.speechSynthesis) return;
+  // Must call speak() synchronously — any setTimeout breaks iOS gesture context
+  window.speechSynthesis.cancel();
+  const utt=new SpeechSynthesisUtterance(`${numWord(ls)} ${numWord(rs)}`);
+  utt.lang='en-US';
+  utt.rate=0.9;
+  utt.pitch=1.0;
+  utt.volume=1.0;
+  window.speechSynthesis.speak(utt);
+}
+
+function startGame(){
+  unlockAudio();
+  lockOrientation();
+  gameStarted = true;
+  checkOrientation();
+  st=newState();
   document.getElementById('setup-modal').style.display='none';
+  syncVoiceHUD();
   render();
   initCamera();
 }
 
-function addPoint(side) {
+function addPoint(side){
   if(st.over) return;
   if(side==='left'&&st.cdL) return;
   if(side==='right'&&st.cdR) return;
@@ -312,68 +452,71 @@ function addPoint(side) {
   animateScore(side);
   showHint(side);
   cooldown(side);
+  speakScore(st.ls,st.rs);
 }
-
-function checkSet() {
-  const p=cfg.pts, need=WIN_SETS[cfg.maxSets];
+function checkSet(){
+  const p=cfg.pts,need=WIN_SETS[cfg.maxSets];
   let w=null;
-  if(st.ls>=p && st.ls-st.rs>=2) w='left';
-  else if(st.rs>=p && st.rs-st.ls>=2) w='right';
-  if(w) {
+  if(st.ls>=p&&st.ls-st.rs>=2) w='left';
+  else if(st.rs>=p&&st.rs-st.ls>=2) w='right';
+  if(w){
     if(w==='left') st.lSets++; else st.rSets++;
-    st.ls=0; st.rs=0; st.set++; st.serveLeft=!st.serveLeft;
-    if(st.lSets>=need||st.rSets>=need){ st.over=true; setTimeout(()=>showWinner(w),600); }
+    st.ls=0;st.rs=0;st.set++;st.serveLeft=!st.serveLeft;
+    if(st.lSets>=need||st.rSets>=need){st.over=true;setTimeout(()=>showWinner(w),600);}
   }
 }
-
-function undoPoint() {
+function undoPoint(){
   if(!st.history.length) return;
-  const prev=st.history.pop(), h=st.history;
-  Object.assign(st,prev); st.history=h; render();
+  const prev=st.history.pop(),h=st.history;
+  Object.assign(st,prev);st.history=h;render();
 }
-function resetGame() {
+function resetGame(){
+  window.speechSynthesis&&window.speechSynthesis.cancel();
+  speechUnlocked=false;
+  audioCtx=null;
+  gameStarted=false;
+  document.getElementById('rotate-overlay').classList.remove('show');
   document.getElementById('winner-overlay').classList.remove('show');
   st=newState();
   document.getElementById('setup-modal').style.display='flex';
   if(mpCam) mpCam.stop();
 }
-
-function render() {
+function render(){
   document.getElementById('left-score').textContent=st.ls;
   document.getElementById('right-score').textContent=st.rs;
   document.getElementById('game-label').textContent=`第 ${st.set} 局`;
-  const c=document.getElementById('sets-display'); c.innerHTML='';
+  const c=document.getElementById('sets-display');c.innerHTML='';
   for(let i=0;i<st.lSets;i++){const d=document.createElement('div');d.className='set-pip left';c.appendChild(d);}
   for(let i=0;i<st.rSets;i++){const d=document.createElement('div');d.className='set-pip right';c.appendChild(d);}
 }
-function animateScore(side) {
+function animateScore(side){
   const el=document.getElementById(side==='left'?'left-score':'right-score');
-  el.classList.remove('bump'); void el.offsetWidth; el.classList.add('bump');
+  el.classList.remove('bump');void el.offsetWidth;el.classList.add('bump');
   const half=document.getElementById(side==='left'?'left-half':'right-half');
-  half.classList.remove('flash-left','flash-right'); void half.offsetWidth;
+  half.classList.remove('flash-left','flash-right');void half.offsetWidth;
   half.classList.add(side==='left'?'flash-left':'flash-right');
 }
-function showHint(side) {
+function showHint(side){
   document.getElementById('gesture-hint-text').textContent=(side==='left'?'🟡':'🔵')+' +1';
   const h=document.getElementById('gesture-hint');
-  h.classList.add('show'); setTimeout(()=>h.classList.remove('show'),1200);
+  h.classList.add('show');setTimeout(()=>h.classList.remove('show'),1200);
 }
-function showWinner(side) {
+function showWinner(side){
   document.getElementById('winner-text').textContent=(side==='left'?'🟡 左側':'🔵 右側')+' 獲勝！';
   document.getElementById('winner-sub').textContent=`比分 ${st.lSets} : ${st.rSets}`;
   document.getElementById('winner-overlay').classList.add('show');
 }
-function cooldown(side) {
+function cooldown(side){
   const key=side==='left'?'cdL':'cdR';
   const bar=document.getElementById(side==='left'?'cd-left':'cd-right');
   st[key]=true;
-  bar.style.opacity='1'; bar.style.transition='none'; bar.style.width='100%';
+  bar.style.opacity='1';bar.style.transition='none';bar.style.width='100%';
   requestAnimationFrame(()=>requestAnimationFrame(()=>{
-    bar.style.transition=`width ${COOLDOWN}ms linear`; bar.style.width='0%';
+    bar.style.transition=`width ${COOLDOWN}ms linear`;bar.style.width='0%';
   }));
-  setTimeout(()=>{ st[key]=false; bar.style.opacity='0'; },COOLDOWN);
+  setTimeout(()=>{st[key]=false;bar.style.opacity='0';},COOLDOWN);
 }
-function goFullscreen() {
+function goFullscreen(){
   const el=document.documentElement;
   if(el.requestFullscreen) el.requestFullscreen();
   else if(el.webkitRequestFullscreen) el.webkitRequestFullscreen();
@@ -387,6 +530,7 @@ document.addEventListener('keydown',e=>{
   if(e.key==='ArrowRight') addPoint('right');
   if(e.key==='z'||e.key==='Z') undoPoint();
   if(e.key==='f'||e.key==='F') goFullscreen();
+  if(e.key==='v'||e.key==='V') toggleVoice();
 });
 
 /* ── MEDIAPIPE + ROI ── */
@@ -447,7 +591,7 @@ function onResultsRight(results) {
 }
 
 function updateBadge(side, detected) {
-  const badge=document.getElementById(`roi-${side}-badge`);
+  const badge=document.getElementById(`badge-${side}`);
   badge.classList.toggle('active', detected);
 }
 
@@ -512,6 +656,33 @@ function initCamera() {
     document.getElementById('game-label').textContent='鏡頭存取失敗';
   });
 }
+
+/* ── ORIENTATION LOCK ── */
+let gameStarted = false;
+
+function lockOrientation() {
+  if (screen.orientation && screen.orientation.lock) {
+    screen.orientation.lock('landscape').catch(() => {});
+  }
+}
+
+function checkOrientation() {
+  if (!gameStarted) return; // only enforce after game starts
+  const isPortrait = window.innerHeight > window.innerWidth;
+  const overlay = document.getElementById('rotate-overlay');
+  overlay.classList.toggle('show', isPortrait);
+}
+
+window.addEventListener('resize', checkOrientation);
+window.addEventListener('orientationchange', checkOrientation);
+
 </script>
+
+<div id="rotate-overlay">
+  <div id="rotate-icon">📱</div>
+  <div id="rotate-text">請將手機轉為橫放</div>
+  <div id="rotate-sub">This app is designed for landscape mode</div>
+</div>
+
 </body>
 </html>
