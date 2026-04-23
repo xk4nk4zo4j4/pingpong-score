@@ -3,650 +3,566 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>🏓 剪刀手計分</title>
+<title>桌球計分</title>
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Noto+Sans+TC:wght@400;700;900&display=swap');
-
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
-:root {
-  --a:   #ff3b5c;
-  --b:   #00c2ff;
-  --bg:  #080810;
-  --sur: #10101e;
-  --txt: #f0f0ff;
-  --dim: #5555778;
-  --dim2: #666688;
-}
-
 html, body {
   width: 100%; height: 100%;
-  background: var(--bg);
-  color: var(--txt);
-  font-family: 'Noto Sans TC', sans-serif;
+  background: #000;
   overflow: hidden;
-  touch-action: manipulation;
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
 }
 
-/* ── camera ── */
-#cam-wrap {
-  position: fixed; inset: 0;
-  display: flex; align-items: center; justify-content: center;
-}
-#cam {
+/* ── CAMERA BACKGROUND ── */
+#video {
+  position: fixed;
+  inset: 0;
   width: 100%; height: 100%;
   object-fit: cover;
-  /* 前置鏡頭：不加鏡像，讓畫面左右與現實一致 */
-  opacity: 0; transition: opacity .6s;
+  transform: scaleX(-1);
+  /* darken the feed */
+  filter: brightness(0.35);
+  z-index: 0;
 }
-#cam.ready { opacity: .35; }
 
-/* landmark canvas overlay */
-#lm-canvas {
-  position: fixed; inset: 0;
+/* ── HAND LANDMARK CANVAS ── */
+#canvas-overlay {
+  position: fixed;
+  inset: 0;
   width: 100%; height: 100%;
   pointer-events: none;
-  /* 同樣不鏡像，與 video 一致 */
+  z-index: 1;
 }
 
-/* center divider */
-#divider {
-  position: fixed; left: 50%; top: 0; bottom: 0;
-  width: 1px;
-  background: linear-gradient(to bottom,
-    transparent 0%, rgba(255,255,255,.18) 20%,
-    rgba(255,255,255,.18) 80%, transparent 100%);
-  transform: translateX(-50%);
-  pointer-events: none; z-index: 2;
-}
-
-/* side labels floating */
-.side-label {
-  position: fixed; top: 50%;
-  transform: translateY(-50%);
-  font-family: 'Bebas Neue', sans-serif;
-  font-size: 13px; letter-spacing: 3px;
-  opacity: .25; pointer-events: none; z-index: 2;
-  writing-mode: vertical-rl;
-}
-#label-a { left: 18px;  color: var(--a); }
-#label-b { right: 18px; color: var(--b); transform: translateY(-50%) rotate(180deg); }
-
-/* ── SCOREBOARD ── */
-#board {
-  position: fixed; top: 0; left: 0; right: 0;
-  height: 148px;
-  display: flex; align-items: stretch;
-  background: linear-gradient(160deg, rgba(8,8,16,.97) 60%, rgba(16,16,30,.9));
-  border-bottom: 1px solid rgba(255,255,255,.07);
+/* ── SCORE LAYER ── */
+#scores {
+  position: fixed;
+  inset: 0;
+  display: flex;
   z-index: 10;
+  pointer-events: none;
 }
 
-.score-side {
-  flex: 1; display: flex; flex-direction: column;
-  align-items: center; justify-content: center; gap: 0;
-  cursor: pointer; user-select: none;
-  -webkit-tap-highlight-color: transparent;
-  position: relative; overflow: hidden;
+.half {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
 }
-.score-side::after {
-  content: ''; position: absolute; inset: 0;
-  opacity: 0; transition: opacity .15s;
-}
-#side-a::after { background: radial-gradient(ellipse at 30% 50%, rgba(255,59,92,.12), transparent 70%); }
-#side-b::after { background: radial-gradient(ellipse at 70% 50%, rgba(0,194,255,.12), transparent 70%); }
-.score-side:active::after { opacity: 1; }
 
-.pname {
-  font-size: 11px; letter-spacing: 3px; text-transform: uppercase;
-  font-weight: 900; margin-bottom: 2px;
+/* subtle vertical center divider */
+#scores::after {
+  content: '';
+  position: absolute;
+  left: 50%; top: 10%; height: 80%;
+  width: 1px;
+  background: rgba(255,255,255,0.12);
+  transform: translateX(-50%);
 }
-#pname-a { color: var(--a); }
-#pname-b { color: var(--b); }
 
-.snum {
-  font-family: 'Bebas Neue', sans-serif;
-  font-size: 96px; line-height: .9;
-  transition: transform .08s;
+.score-num {
+  font-size: clamp(6rem, 22vw, 18rem);
+  font-weight: 900;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+  user-select: none;
+  transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
-#snum-a { color: var(--a); text-shadow: 0 0 40px rgba(255,59,92,.4); }
-#snum-b { color: var(--b); text-shadow: 0 0 40px rgba(0,194,255,.4); }
-.snum.pop { animation: numPop .22s cubic-bezier(.36,.07,.19,.97); }
-@keyframes numPop {
-  0%   { transform: scale(1.4) translateY(-4px); }
-  60%  { transform: scale(.95); }
+#left-score  { color: #f59e0b; text-shadow: 0 0 60px rgba(245,158,11,0.5); }
+#right-score { color: #60a5fa; text-shadow: 0 0 60px rgba(96,165,250,0.5); }
+
+.score-num.bump {
+  animation: bump 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+@keyframes bump {
+  0%   { transform: scale(1); }
+  50%  { transform: scale(1.2); }
   100% { transform: scale(1); }
 }
 
-#board-mid {
-  width: 56px; display: flex; flex-direction: column;
-  align-items: center; justify-content: center; gap: 6px;
-  flex-shrink: 0;
-}
-#board-colon {
-  font-family: 'Bebas Neue', sans-serif;
-  font-size: 48px; color: var(--dim2); line-height: 1;
-}
-#game-info {
-  font-size: 10px; color: var(--dim2); letter-spacing: 1px;
-  text-align: center; line-height: 1.5;
+/* Flash on score */
+.half.flash-left  { animation: flash-gold 0.5s ease-out; }
+.half.flash-right { animation: flash-blue 0.5s ease-out; }
+@keyframes flash-gold { 0% { background: rgba(245,158,11,0.18); } 100% { background: transparent; } }
+@keyframes flash-blue { 0% { background: rgba(96,165,250,0.18);  } 100% { background: transparent; } }
+
+/* Cooldown bar at bottom of each half */
+.cooldown-bar {
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  height: 4px;
+  background: #a855f7;
+  width: 0%;
+  opacity: 0;
+  border-radius: 0 0 0 0;
 }
 
-/* gesture indicator dots */
-.gesture-dot {
-  position: absolute; bottom: 10px;
-  width: 8px; height: 8px; border-radius: 50%;
-  transition: background .2s, box-shadow .2s;
-  background: rgba(255,255,255,.1);
+/* ── GESTURE HINT ── */
+#gesture-hint {
+  position: fixed;
+  z-index: 30;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%) scale(0.8);
+  background: rgba(10,10,20,0.85);
+  border: 1px solid #a855f7;
+  border-radius: 1rem;
+  padding: 1.25rem 2.5rem;
+  text-align: center;
+  pointer-events: none;
+  opacity: 0;
+  transition: all 0.25s ease;
+  box-shadow: 0 0 40px rgba(168,85,247,0.4);
 }
-#gdot-a { left: 50%; transform: translateX(-50%); }
-#gdot-b { left: 50%; transform: translateX(-50%); }
-.gesture-dot.detected-a { background: var(--a); box-shadow: 0 0 10px var(--a); }
-.gesture-dot.detected-b { background: var(--b); box-shadow: 0 0 10px var(--b); }
+#gesture-hint.show {
+  opacity: 1;
+  transform: translate(-50%, -50%) scale(1);
+}
+#gesture-hint-text {
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: #a855f7;
+}
 
-/* ── FLASH OVERLAY ── */
-.flash-overlay {
-  position: fixed; top: 0; bottom: 0; width: 50%;
-  pointer-events: none; z-index: 3; opacity: 0;
+/* ── TOP HUD (minimal) ── */
+#hud {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.6rem 1.25rem;
+  background: rgba(0,0,0,0.5);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+  pointer-events: all;
 }
-#flash-a { left: 0;  background: radial-gradient(ellipse at 20% 50%, rgba(255,59,92,.5), transparent 65%); }
-#flash-b { right: 0; background: radial-gradient(ellipse at 80% 50%, rgba(0,194,255,.5), transparent 65%); }
-.flash-overlay.go { animation: flashPop .4s ease-out forwards; }
-@keyframes flashPop {
-  0%   { opacity: 1; }
-  100% { opacity: 0; }
+.hud-info {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
 }
+#game-label {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: rgba(255,255,255,0.5);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+/* set pips */
+.set-pip-row { display: flex; gap: 0.3rem; align-items: center; }
+.set-pip {
+  width: 9px; height: 9px;
+  border-radius: 50%;
+  border: 1.5px solid rgba(255,255,255,0.2);
+}
+.set-pip.left  { background: #f59e0b; border-color: #f59e0b; }
+.set-pip.right { background: #60a5fa; border-color: #60a5fa; }
 
-/* ── STATUS BAR ── */
-#status-bar {
-  position: fixed; bottom: 0; left: 0; right: 0;
-  height: 52px;
-  background: linear-gradient(to top, rgba(8,8,16,.97), rgba(8,8,16,.7));
-  border-top: 1px solid rgba(255,255,255,.07);
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 0 16px; z-index: 10;
+.hud-btns { display: flex; gap: 0.4rem; }
+.hud-btn {
+  padding: 0.2rem 0.65rem;
+  border-radius: 0.4rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  border: 1px solid rgba(255,255,255,0.15);
+  background: rgba(255,255,255,0.07);
+  color: rgba(255,255,255,0.6);
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+  pointer-events: all;
 }
-#status-left { display: flex; align-items: center; gap: 8px; }
-#status-dot {
-  width: 7px; height: 7px; border-radius: 50%;
-  background: #333355; transition: background .3s, box-shadow .3s;
-}
-#status-dot.on  { background: #44ffaa; box-shadow: 0 0 8px #44ffaa; }
-#status-dot.warn{ background: #ffaa22; box-shadow: 0 0 8px #ffaa22; }
-#status-msg { font-size: 11px; color: var(--dim2); letter-spacing: .5px; }
+.hud-btn:hover { background: rgba(255,255,255,0.15); color: #fff; }
+.hud-btn.primary { background: #3b82f6; color: #fff; border-color: #3b82f6; }
+.hud-btn.primary:hover { background: #2563eb; }
 
-#btn-row { display: flex; gap: 8px; }
-.btn {
-  font-family: 'Noto Sans TC', sans-serif;
-  font-size: 11px; letter-spacing: 1px;
-  padding: 5px 12px; border-radius: 4px;
-  border: 1px solid rgba(255,255,255,.12);
-  background: rgba(255,255,255,.04);
-  color: var(--dim2); cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-  transition: background .12s, color .12s;
+/* camera dot */
+#cam-dot {
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: #ef4444;
+  display: inline-block;
+  margin-right: 0.3rem;
 }
-.btn:active { background: rgba(255,255,255,.1); color: var(--txt); }
-
-/* ── TOAST ── */
-#toast {
-  position: fixed; top: 162px; left: 50%;
-  transform: translateX(-50%);
-  font-family: 'Bebas Neue', sans-serif;
-  font-size: 26px; letter-spacing: 3px;
-  padding: 8px 24px; border-radius: 6px;
-  white-space: nowrap; pointer-events: none; z-index: 20;
-  opacity: 0; transition: opacity .15s;
+#cam-dot.on {
+  background: #22c55e;
+  animation: pulse 1.5s ease-in-out infinite;
 }
-#toast.show { opacity: 1; }
-#toast.ta { background: var(--a); color: #fff; }
-#toast.tb { background: var(--b); color: #fff; }
-#toast.tn { background: rgba(255,255,255,.1); color: var(--txt); border: 1px solid rgba(255,255,255,.15); }
-
-/* ── WIN OVERLAY ── */
-#win-overlay {
-  position: fixed; inset: 0; z-index: 30;
-  background: rgba(8,8,16,.92);
-  display: flex; flex-direction: column;
-  align-items: center; justify-content: center; gap: 10px;
-  opacity: 0; pointer-events: none; transition: opacity .4s;
-}
-#win-overlay.show { opacity: 1; pointer-events: all; }
-#win-sub  { font-size: 12px; letter-spacing: 4px; color: var(--dim2); }
-#win-name { font-family: 'Bebas Neue', sans-serif; font-size: 72px; line-height: 1; }
-#win-sc   { font-family: 'Bebas Neue', sans-serif; font-size: 32px; color: var(--dim2); }
-#btn-next {
-  margin-top: 20px; padding: 12px 40px; border-radius: 8px; border: none;
-  font-family: 'Bebas Neue', sans-serif; font-size: 22px; letter-spacing: 3px;
-  cursor: pointer; transition: transform .1s;
-}
-#btn-next:active { transform: scale(.96); }
+@keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.4; } }
 
 /* ── SETUP MODAL ── */
-#setup {
-  position: fixed; inset: 0; z-index: 40;
-  background: rgba(8,8,16,.97);
-  display: flex; flex-direction: column;
-  align-items: center; justify-content: center;
-  gap: 18px; padding: 28px;
+#setup-modal {
+  position: fixed; inset: 0; z-index: 100;
+  background: rgba(0,0,0,0.92);
+  display: flex; align-items: center; justify-content: center;
 }
-#setup.hidden { display: none; }
-#setup-title {
-  font-family: 'Bebas Neue', sans-serif;
-  font-size: 38px; letter-spacing: 4px; color: var(--txt);
+.modal-box {
+  background: #111827;
+  border: 1px solid #2d3f52;
+  border-radius: 1rem;
+  padding: 2rem;
+  width: min(420px, 90vw);
+  display: flex; flex-direction: column; gap: 1.2rem;
+  color: #e8f0fe;
 }
-#setup-desc {
-  font-size: 13px; color: var(--dim2); text-align: center;
-  line-height: 1.7; max-width: 300px;
+.modal-title { font-size: 1.4rem; font-weight: 800; display: flex; align-items: center; gap: 0.6rem; }
+.modal-label {
+  font-size: 0.72rem; font-weight: 700;
+  color: #8ba3c0; text-transform: uppercase; letter-spacing: 0.08em;
+  margin-bottom: 0.4rem;
 }
-.gesture-demo {
-  display: flex; gap: 16px;
+.opt-row { display: flex; gap: 0.4rem; }
+.opt-btn {
+  flex: 1; padding: 0.55rem 0.5rem;
+  border-radius: 0.5rem; border: 1.5px solid #2d3f52;
+  background: #1e2d3d; color: #8ba3c0;
+  font-size: 0.82rem; font-weight: 600; cursor: pointer;
+  transition: all 0.15s; text-align: center;
 }
-.gdemo {
-  display: flex; flex-direction: column; align-items: center; gap: 8px;
-  padding: 14px 22px; border-radius: 10px;
-  font-size: 11px; letter-spacing: 1px;
+.opt-btn:hover { border-color: #3b82f6; color: #e8f0fe; }
+.opt-btn.sel { border-color: #3b82f6; background: rgba(59,130,246,0.15); color: #e8f0fe; }
+.slider-row { display: flex; align-items: center; gap: 0.6rem; }
+.slider-row input[type=range] { flex: 1; accent-color: #3b82f6; }
+.slider-val { font-size: 0.82rem; color: #8ba3c0; min-width: 2ch; }
+.modal-note { font-size: 0.68rem; color: #4a6480; }
+.start-btn {
+  width: 100%; padding: 0.9rem;
+  border-radius: 0.75rem; background: #3b82f6; color: #fff;
+  font-size: 0.95rem; font-weight: 800; border: none; cursor: pointer;
 }
-.gdemo.ra { background: rgba(255,59,92,.1); border: 1px solid rgba(255,59,92,.25); color: var(--a); }
-.gdemo.rb { background: rgba(0,194,255,.1); border: 1px solid rgba(0,194,255,.25); color: var(--b); }
-.gdemo-icon { font-size: 36px; }
-.name-row { display: flex; gap: 10px; width: 100%; max-width: 320px; }
-.ninput {
-  flex: 1; padding: 10px 12px; text-align: center;
-  background: rgba(255,255,255,.06);
-  border-radius: 6px; color: var(--txt);
-  font-family: 'Noto Sans TC', sans-serif; font-size: 14px;
-  outline: none;
+.start-btn:hover { background: #2563eb; }
+
+/* ── WINNER OVERLAY ── */
+#winner-overlay {
+  position: fixed; inset: 0; z-index: 50;
+  background: rgba(0,0,0,0.88);
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 1.2rem; opacity: 0; pointer-events: none; transition: opacity 0.5s;
 }
-.ninput.ra { border: 1px solid rgba(255,59,92,.4); }
-.ninput.rb { border: 1px solid rgba(0,194,255,.4); }
-.ninput:focus { filter: brightness(1.3); }
-.target-row { display: flex; align-items: center; gap: 10px; color: var(--dim2); font-size: 13px; }
-#tgt-input {
-  width: 60px; padding: 8px; text-align: center;
-  background: rgba(255,255,255,.06);
-  border: 1px solid rgba(255,255,255,.15);
-  border-radius: 6px; color: var(--txt);
-  font-family: 'Bebas Neue', sans-serif; font-size: 22px; outline: none;
+#winner-overlay.show { opacity: 1; pointer-events: all; }
+#winner-emoji { font-size: 5rem; }
+#winner-text  { font-size: clamp(1.5rem,4vw,2.5rem); font-weight: 900; color: #fff; }
+#winner-sub   { font-size: 1rem; color: #8ba3c0; }
+#btn-new-game {
+  margin-top: 0.5rem; padding: 0.7rem 2rem;
+  font-size: 0.95rem; font-weight: 700;
+  background: #3b82f6; color: #fff;
+  border: none; border-radius: 0.75rem; cursor: pointer;
 }
-#btn-go {
-  width: 100%; max-width: 320px; padding: 14px; border-radius: 8px; border: none;
-  background: var(--txt); color: var(--bg);
-  font-family: 'Bebas Neue', sans-serif; font-size: 22px; letter-spacing: 4px;
-  cursor: pointer; transition: opacity .15s;
-}
-#btn-go:active { opacity: .8; }
-#loading-mediapipe {
-  font-size: 12px; color: var(--dim2); letter-spacing: 1px;
-  display: flex; align-items: center; gap: 8px;
-}
-.spinner {
-  width: 14px; height: 14px; border-radius: 50%;
-  border: 2px solid rgba(255,255,255,.1);
-  border-top-color: var(--txt);
-  animation: spin .8s linear infinite;
-}
-@keyframes spin { to { transform: rotate(360deg); } }
+#btn-new-game:hover { background: #2563eb; }
 </style>
 </head>
 <body>
 
-<div id="cam-wrap"><video id="cam" autoplay playsinline muted></video></div>
-<canvas id="lm-canvas"></canvas>
+<!-- Camera bg -->
+<video id="video" autoplay playsinline muted></video>
+<canvas id="canvas-overlay"></canvas>
 
-<div id="divider"></div>
-<div class="side-label" id="label-a">✌ 在這邊</div>
-<div class="side-label" id="label-b">✌ 在這邊</div>
-
-<div class="flash-overlay" id="flash-a"></div>
-<div class="flash-overlay" id="flash-b"></div>
-
-<!-- Scoreboard -->
-<div id="board">
-  <div class="score-side" id="side-a">
-    <div class="pname" id="pname-a">A 方</div>
-    <div class="snum" id="snum-a">0</div>
-    <div class="gesture-dot" id="gdot-a"></div>
+<!-- Scores -->
+<div id="scores">
+  <div class="half" id="left-half">
+    <div class="score-num" id="left-score">0</div>
+    <div class="cooldown-bar" id="cd-left"></div>
   </div>
-  <div id="board-mid">
-    <div id="board-colon">:</div>
-    <div id="game-info">先得 11 分</div>
-  </div>
-  <div class="score-side" id="side-b">
-    <div class="pname" id="pname-b">B 方</div>
-    <div class="snum" id="snum-b">0</div>
-    <div class="gesture-dot" id="gdot-b"></div>
+  <div class="half" id="right-half">
+    <div class="score-num" id="right-score">0</div>
+    <div class="cooldown-bar" id="cd-right"></div>
   </div>
 </div>
 
-<div id="toast"></div>
-
-<div id="win-overlay">
-  <div id="win-sub">🏓 WINNER</div>
-  <div id="win-name"></div>
-  <div id="win-sc"></div>
-  <button id="btn-next">下一局</button>
-</div>
-
-<div id="status-bar">
-  <div id="status-left">
-    <div id="status-dot"></div>
-    <div id="status-msg">啟動中...</div>
+<!-- Top HUD -->
+<div id="hud">
+  <div class="hud-info">
+    <span id="cam-dot"></span>
+    <span id="game-label">第 1 局</span>
+    <div class="set-pip-row" id="sets-display"></div>
   </div>
-  <div id="btn-row">
-    <button class="btn" id="btn-undo">↩ 撤銷</button>
-    <button class="btn" id="btn-reset">重設</button>
-    <button class="btn" id="btn-setup">⚙</button>
+  <div class="hud-btns">
+    <button class="hud-btn" onclick="undoPoint()">↩ 撤銷</button>
+    <button class="hud-btn" onclick="resetGame()">重置</button>
+    <button class="hud-btn primary" onclick="goFullscreen()">⛶ 全螢幕</button>
   </div>
 </div>
 
-<!-- Setup -->
-<div id="setup">
-  <div id="setup-title">🏓 剪刀手計分</div>
-  <div id="setup-desc">
-    固定手機，鏡頭朝向球桌兩端。<br>
-    各自在自己那半邊比✌️即得分。<br>
-    等待 MediaPipe 載入完畢再開始。
+<!-- Gesture hint -->
+<div id="gesture-hint">
+  <div id="gesture-hint-text">+1</div>
+</div>
+
+<!-- Winner -->
+<div id="winner-overlay">
+  <div id="winner-emoji">🏆</div>
+  <div id="winner-text"></div>
+  <div id="winner-sub"></div>
+  <button id="btn-new-game" onclick="resetGame()">🔄 新比賽</button>
+</div>
+
+<!-- Setup Modal -->
+<div id="setup-modal">
+  <div class="modal-box">
+    <div class="modal-title">🏓 桌球計分</div>
+
+    <div>
+      <div class="modal-label">比賽模式</div>
+      <div class="opt-row">
+        <button class="opt-btn sel" data-mode="singles" onclick="pick(this,'mode','singles')">單打</button>
+        <button class="opt-btn" data-mode="doubles" onclick="pick(this,'mode','doubles')">雙打</button>
+      </div>
+    </div>
+
+    <div>
+      <div class="modal-label">局數</div>
+      <div class="opt-row">
+        <button class="opt-btn" data-sets="3" onclick="pick(this,'sets',3)">三局兩勝</button>
+        <button class="opt-btn sel" data-sets="5" onclick="pick(this,'sets',5)">五局三勝</button>
+        <button class="opt-btn" data-sets="7" onclick="pick(this,'sets',7)">七局四勝</button>
+      </div>
+    </div>
+
+    <div>
+      <div class="modal-label">每局分數</div>
+      <div class="opt-row">
+        <button class="opt-btn sel" data-pts="11" onclick="pick(this,'pts',11)">11 分制</button>
+        <button class="opt-btn" data-pts="21" onclick="pick(this,'pts',21)">21 分制</button>
+      </div>
+    </div>
+
+    <div>
+      <div class="modal-label">手勢靈敏度（連續幀數）</div>
+      <div class="slider-row">
+        <span style="font-size:.72rem;color:#4a6480">低</span>
+        <input type="range" id="sens-slider" min="1" max="5" value="3">
+        <span style="font-size:.72rem;color:#4a6480">高</span>
+        <span class="slider-val" id="sens-val">3</span>
+      </div>
+      <div class="modal-note">偵測到 ✌️ 後計分 +1，冷卻 3 秒</div>
+    </div>
+
+    <button class="start-btn" onclick="startGame()">📷 開啟鏡頭並開始</button>
   </div>
-  <div class="gesture-demo">
-    <div class="gdemo ra"><div class="gdemo-icon">✌️</div>左半邊</div>
-    <div class="gdemo rb"><div class="gdemo-icon">✌️</div>右半邊</div>
-  </div>
-  <div class="name-row">
-    <input class="ninput ra" id="inp-a" placeholder="A 方名字" value="A 方">
-    <input class="ninput rb" id="inp-b" placeholder="B 方名字" value="B 方">
-  </div>
-  <div class="target-row">
-    先得 <input type="number" id="tgt-input" value="11" min="5" max="21"> 分獲勝
-  </div>
-  <div id="loading-mediapipe"><div class="spinner"></div>載入手勢辨識中...</div>
-  <button id="btn-go" disabled>開始比賽</button>
 </div>
 
 <!-- MediaPipe -->
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
 
 <script>
-// ── State ──
-let sA = 0, sB = 0, target = 11, gameOver = false;
-let nameA = 'A 方', nameB = 'B 方';
-let hist = [];
-const COOLDOWN = 2000;
-let lastA = 0, lastB = 0;
-let mpReady = false;
-let videoW = 1, videoH = 1;
+/* ── CONFIG ── */
+const WIN_SETS = {3:2, 5:3, 7:4};
+const COOLDOWN = 3000;
+let cfg = { mode:'singles', maxSets:5, pts:11, sens:3 };
 
-const cam     = document.getElementById('cam');
-const lmCv    = document.getElementById('lm-canvas');
-const lmCtx   = lmCv.getContext('2d');
-const snumA   = document.getElementById('snum-a');
-const snumB   = document.getElementById('snum-b');
-const gdotA   = document.getElementById('gdot-a');
-const gdotB   = document.getElementById('gdot-b');
-const sdot    = document.getElementById('status-dot');
-const smsg    = document.getElementById('status-msg');
-const toast   = document.getElementById('toast');
-const flashA  = document.getElementById('flash-a');
-const flashB  = document.getElementById('flash-b');
-
-// ── MediaPipe Hands ──
-const hands = new Hands({ locateFile: f => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${f}` });
-hands.setOptions({
-  maxNumHands: 4,
-  modelComplexity: 1,
-  minDetectionConfidence: 0.7,
-  minTrackingConfidence: 0.6,
-});
-
-hands.onResults(onResults);
-
-hands.initialize().then(() => {
-  mpReady = true;
-  document.getElementById('loading-mediapipe').innerHTML = '✅ 手勢辨識就緒';
-  document.getElementById('btn-go').disabled = false;
-}).catch(e => {
-  document.getElementById('loading-mediapipe').innerHTML = '❌ 載入失敗，請重新整理';
-});
-
-// ── Scissors gesture detection ──
-// MediaPipe 21 landmarks: 0=wrist, 4=thumb tip, 8=index tip, 12=middle tip, 16=ring tip, 20=pinky tip
-// MCP joints: 5=index MCP, 9=middle MCP, 13=ring MCP, 17=pinky MCP
-// PIP joints: 6=index PIP, 10=middle PIP, 14=ring PIP, 18=pinky PIP
-
-function isFingerExtended(lm, tipIdx, pipIdx, mcpIdx) {
-  // tip is above (lower y) PIP and MCP
-  return lm[tipIdx].y < lm[pipIdx].y && lm[pipIdx].y < lm[mcpIdx].y;
+/* ── STATE ── */
+let st = newState();
+function newState() {
+  return { ls:0, rs:0, lSets:0, rSets:0, set:1, serveLeft:true,
+           history:[], cdL:false, cdR:false, over:false };
 }
 
-function isFingerCurled(lm, tipIdx, pipIdx) {
-  return lm[tipIdx].y > lm[pipIdx].y;
+/* ── SETUP ── */
+document.getElementById('sens-slider').addEventListener('input', function() {
+  cfg.sens = +this.value;
+  document.getElementById('sens-val').textContent = this.value;
+});
+function pick(el, group, val) {
+  document.querySelectorAll(`[data-${group}]`).forEach(b => b.classList.remove('sel'));
+  el.classList.add('sel');
+  if (group==='mode') cfg.mode = val;
+  if (group==='sets') cfg.maxSets = +val;
+  if (group==='pts')  cfg.pts = +val;
 }
 
-function isScissors(lm) {
-  const indexUp  = isFingerExtended(lm, 8, 6, 5);
-  const middleUp = isFingerExtended(lm, 12, 10, 9);
-  const ringDown = isFingerCurled(lm, 16, 14);
-  const pinkyDown= isFingerCurled(lm, 20, 18);
-  return indexUp && middleUp && ringDown && pinkyDown;
+/* ── START ── */
+function startGame() {
+  st = newState();
+  document.getElementById('setup-modal').style.display = 'none';
+  render();
+  initCamera();
+}
+
+/* ── GAME LOGIC ── */
+function addPoint(side) {
+  if (st.over) return;
+  if (side==='left' && st.cdL) return;
+  if (side==='right' && st.cdR) return;
+  st.history.push(JSON.parse(JSON.stringify(st)));
+  if (side==='left') st.ls++; else st.rs++;
+  checkSet();
+  render();
+  animateScore(side);
+  showHint(side);
+  cooldown(side);
+}
+
+function checkSet() {
+  const p = cfg.pts, need = WIN_SETS[cfg.maxSets];
+  let w = null;
+  if (st.ls >= p && st.ls - st.rs >= 2) w = 'left';
+  else if (st.rs >= p && st.rs - st.ls >= 2) w = 'right';
+  if (w) {
+    if (w==='left') st.lSets++; else st.rSets++;
+    st.ls = 0; st.rs = 0; st.set++; st.serveLeft = !st.serveLeft;
+    if (st.lSets >= need || st.rSets >= need) {
+      st.over = true;
+      setTimeout(() => showWinner(w), 600);
+    }
+  }
+}
+
+function undoPoint() {
+  if (!st.history.length) return;
+  const prev = st.history.pop();
+  const h = st.history;
+  Object.assign(st, prev);
+  st.history = h;
+  render();
+}
+
+function resetGame() {
+  document.getElementById('winner-overlay').classList.remove('show');
+  st = newState();
+  document.getElementById('setup-modal').style.display = 'flex';
+  if (mpCam) mpCam.stop();
+}
+
+/* ── RENDER ── */
+function render() {
+  document.getElementById('left-score').textContent  = st.ls;
+  document.getElementById('right-score').textContent = st.rs;
+  document.getElementById('game-label').textContent  = `第 ${st.set} 局`;
+  // set pips
+  const c = document.getElementById('sets-display'); c.innerHTML = '';
+  for (let i=0;i<st.lSets;i++) { const d=document.createElement('div'); d.className='set-pip left'; c.appendChild(d); }
+  for (let i=0;i<st.rSets;i++) { const d=document.createElement('div'); d.className='set-pip right'; c.appendChild(d); }
+}
+
+function animateScore(side) {
+  const el = document.getElementById(side==='left'?'left-score':'right-score');
+  el.classList.remove('bump'); void el.offsetWidth; el.classList.add('bump');
+  const half = document.getElementById(side==='left'?'left-half':'right-half');
+  half.classList.remove('flash-left','flash-right'); void half.offsetWidth;
+  half.classList.add(side==='left'?'flash-left':'flash-right');
+}
+
+function showHint(side) {
+  const h = document.getElementById('gesture-hint');
+  document.getElementById('gesture-hint-text').textContent =
+    (side==='left' ? '🟡' : '🔵') + '  +1';
+  h.classList.add('show');
+  setTimeout(() => h.classList.remove('show'), 1200);
+}
+
+function showWinner(side) {
+  document.getElementById('winner-text').textContent =
+    (side==='left' ? '🟡 左側' : '🔵 右側') + ' 獲勝！';
+  document.getElementById('winner-sub').textContent = `比分 ${st.lSets} : ${st.rSets}`;
+  document.getElementById('winner-overlay').classList.add('show');
+}
+
+/* ── COOLDOWN ── */
+function cooldown(side) {
+  const key = side==='left'?'cdL':'cdR';
+  const bar = document.getElementById(side==='left'?'cd-left':'cd-right');
+  st[key] = true;
+  bar.style.opacity = '1';
+  bar.style.transition = 'none'; bar.style.width = '100%';
+  requestAnimationFrame(()=>requestAnimationFrame(()=>{
+    bar.style.transition = `width ${COOLDOWN}ms linear`;
+    bar.style.width = '0%';
+  }));
+  setTimeout(()=>{ st[key]=false; bar.style.opacity='0'; }, COOLDOWN);
+}
+
+/* ── FULLSCREEN ── */
+function goFullscreen() {
+  const el = document.documentElement;
+  if (el.requestFullscreen) el.requestFullscreen();
+  else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
+}
+document.addEventListener('fullscreenchange', ()=>{
+  document.querySelector('.hud-btn.primary').textContent =
+    document.fullscreenElement ? '⛶ 離開全螢幕' : '⛶ 全螢幕';
+});
+
+/* ── KEYBOARD ── */
+document.addEventListener('keydown', e=>{
+  if (e.key==='ArrowLeft')  addPoint('left');
+  if (e.key==='ArrowRight') addPoint('right');
+  if (e.key==='z'||e.key==='Z') undoPoint();
+  if (e.key==='f'||e.key==='F') goFullscreen();
+});
+
+/* ── MEDIAPIPE ── */
+let mpCam=null, hands=null;
+const videoEl  = document.getElementById('video');
+const canvasEl = document.getElementById('canvas-overlay');
+const ctx = canvasEl.getContext('2d');
+let gfL=0, gfR=0;
+
+function framesNeeded() { return [1,2,3,5,7][cfg.sens-1]; }
+
+function isVSign(lm) {
+  const t=i=>lm[i], p=i=>lm[i-2];
+  return t(8).y<p(8).y && t(12).y<p(12).y
+      && t(16).y>p(16).y && t(20).y>p(20).y
+      && (Math.abs(t(8).x-t(12).x)>0.04 || Math.abs(t(8).y-t(12).y)>0.04);
+}
+
+function initCamera() {
+  hands = new Hands({ locateFile: f=>`https://cdn.jsdelivr.net/npm/@mediapipe/hands/${f}` });
+  hands.setOptions({ maxNumHands:4, modelComplexity:1, minDetectionConfidence:.6, minTrackingConfidence:.5 });
+  hands.onResults(onResults);
+  mpCam = new Camera(videoEl, {
+    onFrame: async()=>{ await hands.send({image:videoEl}); },
+    width:1280, height:720, facingMode:'user'
+  });
+  mpCam.start().then(()=>{
+    const dot = document.getElementById('cam-dot');
+    dot.classList.add('on');
+  }).catch(()=>{
+    document.getElementById('game-label').textContent = '鏡頭存取失敗';
+  });
 }
 
 function onResults(results) {
-  // resize lm canvas
-  if (lmCv.width !== cam.videoWidth || lmCv.height !== cam.videoHeight) {
-    lmCv.width  = cam.videoWidth  || 640;
-    lmCv.height = cam.videoHeight || 360;
-    videoW = lmCv.width; videoH = lmCv.height;
+  canvasEl.width  = videoEl.videoWidth  || 1280;
+  canvasEl.height = videoEl.videoHeight || 720;
+  ctx.clearRect(0,0,canvasEl.width,canvasEl.height);
+
+  if (!results.multiHandLandmarks?.length) {
+    gfL=Math.max(0,gfL-1); gfR=Math.max(0,gfR-1); return;
   }
 
-  lmCtx.clearRect(0, 0, lmCv.width, lmCv.height);
+  let gl=false, gr=false;
+  results.multiHandLandmarks.forEach((lm,i)=>{
+    // raw wristX: mirrored display → wristX<0.5 is screen-right, >0.5 is screen-left
+    const side = lm[0].x > 0.5 ? 'left' : 'right';
+    const v = isVSign(lm);
+    if (v) { if(side==='left') gl=true; else gr=true; }
 
-  if (!results.multiHandLandmarks || gameOver) return;
-
-  const now = Date.now();
-  let detectedA = false, detectedB = false;
-
-  results.multiHandLandmarks.forEach((lm, i) => {
-    // 前置鏡頭說明：
-    // 前置鏡頭的 raw frame 本身是鏡像的（x=0 = 畫面左邊 = 現實右邊）
-    // 我們沒有加 CSS scaleX(-1)，所以畫面顯示就是 raw frame
-    // 畫面左半 = 現實右半 = B隊，畫面右半 = 現實左半 = A隊
-    // wristX < 0.5 → 畫面左 → 現實右 → B隊
-    // wristX > 0.5 → 畫面右 → 現實左 → A隊
-    const side = wristX > 0.5 ? 'a' : 'b';
-
-    // Draw skeleton
-    drawHand(lm, side);
-
-    if (isScissors(lm)) {
-      if (side === 'a') detectedA = true;
-      else detectedB = true;
-
-      if (side === 'a' && now - lastA > COOLDOWN) {
-        lastA = now; addScore('a');
-      }
-      if (side === 'b' && now - lastB > COOLDOWN) {
-        lastB = now; addScore('b');
-      }
+    const color = side==='left' ? '#f59e0b' : '#60a5fa';
+    drawConnectors(ctx, lm, HAND_CONNECTIONS, {color:color+'66', lineWidth:2});
+    drawLandmarks(ctx, lm, {color, lineWidth:1, radius:3});
+    if (v) {
+      ctx.save();
+      ctx.font=`bold ${Math.round(canvasEl.height*.08)}px sans-serif`;
+      ctx.fillStyle='#a855f7'; ctx.shadowColor='#a855f7'; ctx.shadowBlur=14;
+      ctx.fillText('✌️', lm[0].x*canvasEl.width-16, lm[0].y*canvasEl.height-16);
+      ctx.restore();
     }
   });
 
-  // update dots
-  gdotA.className = 'gesture-dot' + (detectedA ? ' detected-a' : '');
-  gdotB.className = 'gesture-dot' + (detectedB ? ' detected-b' : '');
+  const fn=framesNeeded();
+  if(gl) gfL++; else gfL=Math.max(0,gfL-1);
+  if(gr) gfR++; else gfR=Math.max(0,gfR-1);
+  if(gfL>=fn && !st.cdL){ gfL=0; addPoint('left'); }
+  if(gfR>=fn && !st.cdR){ gfR=0; addPoint('right'); }
 }
-
-function drawHand(lm, side) {
-  const color = side === 'a' ? 'rgba(255,59,92,.8)' : 'rgba(0,194,255,.8)';
-  const W = lmCv.width, H = lmCv.height;
-  const connections = [
-    [0,1],[1,2],[2,3],[3,4],
-    [0,5],[5,6],[6,7],[7,8],
-    [5,9],[9,10],[10,11],[11,12],
-    [9,13],[13,14],[14,15],[15,16],
-    [13,17],[17,18],[18,19],[19,20],[0,17]
-  ];
-  lmCtx.strokeStyle = color;
-  lmCtx.lineWidth = 2;
-  connections.forEach(([a, b]) => {
-    lmCtx.beginPath();
-    lmCtx.moveTo(lm[a].x * W, lm[a].y * H);
-    lmCtx.lineTo(lm[b].x * W, lm[b].y * H);
-    lmCtx.stroke();
-  });
-  lm.forEach((p, idx) => {
-    lmCtx.beginPath();
-    lmCtx.arc(p.x * W, p.y * H, idx === 0 ? 5 : 3, 0, Math.PI * 2);
-    lmCtx.fillStyle = color;
-    lmCtx.fill();
-  });
-}
-
-// ── Camera ──
-async function startCamera() {
-  sdot.className = 'warn';
-  smsg.textContent = '請求鏡頭權限...';
-  try {
-    const stream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } }
-    });
-    cam.srcObject = stream;
-    cam.onloadedmetadata = () => {
-      cam.play();
-      cam.classList.add('ready');
-      sdot.className = 'on';
-      smsg.textContent = '偵測中 — 比✌️得分';
-      startLoop();
-    };
-  } catch(e) {
-    sdot.className = 'warn';
-    smsg.textContent = '無法存取鏡頭（可點擊計分板手動計分）';
-  }
-}
-
-function startLoop() {
-  async function loop() {
-    if (cam.readyState >= 2 && mpReady) {
-      await hands.send({ image: cam });
-    }
-    requestAnimationFrame(loop);
-  }
-  loop();
-}
-
-// ── Score ──
-function addScore(side) {
-  hist.push({ a: sA, b: sB });
-  if (side === 'a') sA++; else sB++;
-  render();
-  popAnim(side === 'a' ? snumA : snumB);
-  triggerFlash(side);
-  showToast((side === 'a' ? nameA : nameB) + '  ✌️  +1', side === 'a' ? 'ta' : 'tb');
-  checkWin();
-}
-
-function checkWin() {
-  const mx = Math.max(sA, sB), mn = Math.min(sA, sB);
-  if (mx >= target && mx - mn >= 2) {
-    gameOver = true;
-    const won = sA > sB;
-    const wo = document.getElementById('win-overlay');
-    const wn = document.getElementById('win-name');
-    wn.textContent = won ? nameA : nameB;
-    wn.style.color = won ? 'var(--a)' : 'var(--b)';
-    document.getElementById('win-sc').textContent = `${sA}  :  ${sB}`;
-    const nb = document.getElementById('btn-next');
-    nb.style.background = won ? 'var(--a)' : 'var(--b)';
-    nb.style.color = '#fff';
-    wo.classList.add('show');
-  }
-  updateInfo();
-}
-
-function updateInfo() {
-  const mx = Math.max(sA, sB);
-  const gi = document.getElementById('game-info');
-  if (mx >= target - 1 && Math.abs(sA - sB) <= 1 && mx >= target - 1) {
-    gi.textContent = sA === sB ? '平分！' : '局末！';
-  } else {
-    gi.textContent = `先得 ${target} 分`;
-  }
-}
-
-function render() {
-  snumA.textContent = sA;
-  snumB.textContent = sB;
-}
-
-function popAnim(el) {
-  el.classList.remove('pop');
-  void el.offsetWidth;
-  el.classList.add('pop');
-}
-
-function triggerFlash(side) {
-  const el = side === 'a' ? flashA : flashB;
-  el.classList.remove('go');
-  void el.offsetWidth;
-  el.classList.add('go');
-}
-
-let tt = null;
-function showToast(msg, cls) {
-  toast.textContent = msg;
-  toast.className = 'show ' + cls;
-  clearTimeout(tt);
-  tt = setTimeout(() => toast.className = '', 1400);
-}
-
-// ── Setup ──
-document.getElementById('btn-go').addEventListener('click', () => {
-  nameA = document.getElementById('inp-a').value.trim() || 'A 方';
-  nameB = document.getElementById('inp-b').value.trim() || 'B 方';
-  target = parseInt(document.getElementById('tgt-input').value) || 11;
-  document.getElementById('pname-a').textContent = nameA;
-  document.getElementById('pname-b').textContent = nameB;
-  document.getElementById('setup').classList.add('hidden');
-  updateInfo();
-  startCamera();
-});
-
-document.getElementById('btn-setup').addEventListener('click', () => {
-  document.getElementById('setup').classList.remove('hidden');
-});
-
-// ── Controls ──
-document.getElementById('btn-undo').addEventListener('click', () => {
-  if (!hist.length) return;
-  const s = hist.pop();
-  sA = s.a; sB = s.b; gameOver = false;
-  document.getElementById('win-overlay').classList.remove('show');
-  render(); updateInfo();
-  showToast('撤銷', 'tn');
-});
-
-document.getElementById('btn-reset').addEventListener('click', () => {
-  if (!confirm('確定重設？')) return;
-  sA = 0; sB = 0; gameOver = false; hist = [];
-  document.getElementById('win-overlay').classList.remove('show');
-  render(); updateInfo();
-  showToast('重設', 'tn');
-});
-
-document.getElementById('btn-next').addEventListener('click', () => {
-  sA = 0; sB = 0; gameOver = false; hist = [];
-  document.getElementById('win-overlay').classList.remove('show');
-  render(); updateInfo();
-});
-
-// Manual tap
-document.getElementById('side-a').addEventListener('click', () => { if (!gameOver) addScore('a'); });
-document.getElementById('side-b').addEventListener('click', () => { if (!gameOver) addScore('b'); });
-
-// Wake lock
-(async () => {
-  try { if ('wakeLock' in navigator) await navigator.wakeLock.request('screen'); } catch(_) {}
-})();
 </script>
 </body>
 </html>
