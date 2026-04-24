@@ -146,12 +146,16 @@ html, body {
 #setup-modal {
   position: fixed; inset: 0; z-index: 100;
   background: rgba(0,0,0,0.92);
-  display: flex; align-items: center; justify-content: center;
+  display: flex; align-items: flex-start; justify-content: center;
+  overflow-y: auto; -webkit-overflow-scrolling: touch;
+  padding: 2rem 0;
 }
 .modal-box {
   background: #111827; border: 1px solid #2d3f52; border-radius: 1rem;
   padding: 2rem; width: min(420px,90vw);
   display: flex; flex-direction: column; gap: 1.2rem; color: #e8f0fe;
+  overflow-y: auto; max-height: 85vh;
+  -webkit-overflow-scrolling: touch;
 }
 .modal-title { font-size: 1.4rem; font-weight: 800; display: flex; align-items: center; gap: 0.6rem; }
 .modal-label { font-size: 0.72rem; font-weight: 700; color: #8ba3c0; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 0.4rem; }
@@ -507,14 +511,17 @@ function showWinner(side){
   document.getElementById('winner-overlay').classList.add('show');
 }
 function cooldown(side){
-  const key=side==='left'?'cdL':'cdR';
-  const bar=document.getElementById(side==='left'?'cd-left':'cd-right');
-  st[key]=true;
-  bar.style.opacity='1';bar.style.transition='none';bar.style.width='100%';
-  requestAnimationFrame(()=>requestAnimationFrame(()=>{
-    bar.style.transition=`width ${COOLDOWN}ms linear`;bar.style.width='0%';
-  }));
-  setTimeout(()=>{st[key]=false;bar.style.opacity='0';},COOLDOWN);
+  // Lock BOTH sides after any point — a rally is over, both players need to reset
+  ['left','right'].forEach(s=>{
+    const key=s==='left'?'cdL':'cdR';
+    const bar=document.getElementById(s==='left'?'cd-left':'cd-right');
+    st[key]=true;
+    bar.style.opacity='1';bar.style.transition='none';bar.style.width='100%';
+    requestAnimationFrame(()=>requestAnimationFrame(()=>{
+      bar.style.transition=`width ${COOLDOWN}ms linear`;bar.style.width='0%';
+    }));
+    setTimeout(()=>{st[key]=false;bar.style.opacity='0';},COOLDOWN);
+  });
 }
 function goFullscreen(){
   const el=document.documentElement;
